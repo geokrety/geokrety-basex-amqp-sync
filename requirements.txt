@@ -1,0 +1,4 @@
+requests
+BaseXClient
+psycopg2-binary
+pika
