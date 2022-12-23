@@ -10,6 +10,8 @@ import os
 import time
 import pika
 from pathlib import Path
+
+from cachetools import TTLCache, cached
 from pika.exchange_type import ExchangeType
 
 from BaseXClient import BaseXClient
@@ -36,12 +38,17 @@ def basex_connect() -> BaseXClient.Session:
 BASEX_SESSION = basex_connect()
 
 
-def update_gk(gk: dict) -> None:
+@cached(cache=TTLCache(maxsize=1024, ttl=1))
+def update_gk_cached(id: str, op: str, kind: str) -> None:
+    update_gk(id, op, kind)
+
+
+def update_gk(id: str, op: str, kind: str) -> None:
     query_update = BASEX_SESSION.query(QUERY_UPDATE)
-    LOGGER.info('Processing: %s', json.dumps(gk))
+    LOGGER.info(f'Processing: {id=}, {op=} {kind=}')
     query_update.bind('gk_api_base_url', os.getenv('GK_API_BASE_URL'))
     query_update.bind('rate_limits_bypass', os.getenv('GK_API_RATE_LIMITS_BYPASS'))
-    query_update.bind('gkid', str(gk['id']))
+    query_update.bind('gkid', str(id))
     query_update.execute()
 
 
@@ -50,14 +57,14 @@ def process_gk(gk: dict) -> None:
     if BASEX_SESSION is None:
         BASEX_SESSION = basex_connect()
     try:
-        update_gk(gk)
+        update_gk_cached(**gk)
     except OSError as e:
         LOGGER.info('Processing GK %d FAILED', gk['id'])
         LOGGER.info(e)
         LOGGER.info('Retrying…')
         BASEX_SESSION = basex_connect()
         try:
-            update_gk(gk)
+            update_gk(**gk)
         except OSError as e:
             LOGGER.info('Stilling failling')
 
