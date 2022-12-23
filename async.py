@@ -14,33 +14,53 @@ from pika.exchange_type import ExchangeType
 
 from BaseXClient import BaseXClient
 
+AMQP_URL = f"""amqp://{os.getenv('GK_RABBITMQ_USER')}:{os.getenv('GK_RABBITMQ_PASS')}@{os.getenv('GK_RABBITMQ_HOST')}:{os.getenv('GK_RABBITMQ_PORT')}/{os.getenv('GK_RABBITMQ_VHOST')}"""
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
 LOGGER = logging.getLogger(__name__)
 
-# TODO auto reconnect
-basex_session = BaseXClient.Session(os.getenv('GK_BASEX_HOST'), int(os.getenv('GK_BASEX_PORT')), os.getenv('GK_BASEX_USER'), os.getenv('GK_BASEX_PASSWORD'))
-
 with open(Path('.') / "xquery" / "update.xq") as f:
     QUERY_UPDATE = f.read()
 
-# query_update = basex_session.query(QUERY_UPDATE)
+
+def basex_connect() -> BaseXClient.Session:
+    return BaseXClient.Session(
+        os.getenv('GK_BASEX_HOST'),
+        int(os.getenv('GK_BASEX_PORT')),
+        os.getenv('GK_BASEX_USER'),
+        os.getenv('GK_BASEX_PASSWORD')
+    )
+
+
+BASEX_SESSION = basex_connect()
+
+
+def update_gk(gk: dict) -> None:
+    query_update = BASEX_SESSION.query(QUERY_UPDATE)
+    LOGGER.info('Processing: %s', json.dumps(gk))
+    query_update.bind('gk_api_base_url', os.getenv('GK_API_BASE_URL'))
+    query_update.bind('rate_limits_bypass', os.getenv('GK_API_RATE_LIMITS_BYPASS'))
+    query_update.bind('gkid', str(gk['id']))
+    query_update.execute()
 
 
 def process_gk(gk: dict) -> None:
+    global BASEX_SESSION
+    if BASEX_SESSION is None:
+        BASEX_SESSION = basex_connect()
     try:
-        query_update = basex_session.query(QUERY_UPDATE)
-        LOGGER.info('Processing: %s', json.dumps(gk))
-        query_update.bind('gk_api_base_url', os.getenv('GK_API_BASE_URL'))
-        query_update.bind('rate_limits_bypass', os.getenv('GK_API_RATE_LIMITS_BYPASS'))
-        query_update.bind('gkid', str(gk['id']))
-        query_update.execute()
-        pass
+        update_gk(gk)
     except OSError as e:
         LOGGER.info('Processing GK %d FAILED', gk['id'])
         LOGGER.info(e)
-        return
+        LOGGER.info('Retrying…')
+        BASEX_SESSION = basex_connect()
+        try:
+            update_gk(gk)
+        except OSError as e:
+            LOGGER.info('Stilling failling')
+
 
 class ExampleConsumer(object):
     """This is an example consumer that will handle unexpected interactions
@@ -454,17 +474,14 @@ class ReconnectingExampleConsumer(object):
     def _get_reconnect_delay(self):
         if self._consumer.was_consuming:
             self._reconnect_delay = 0
-        else:
+        elif self._reconnect_delay <= 30:
             self._reconnect_delay += 1
-        if self._reconnect_delay > 30:
-            self._reconnect_delay = 30
         return self._reconnect_delay
 
 
 def main():
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-    amqp_url = f"""amqp://{os.getenv('GK_RABBITMQ_USER')}:{os.getenv('GK_RABBITMQ_PASS')}@{os.getenv('GK_RABBITMQ_HOST')}:{os.getenv('GK_RABBITMQ_PORT')}/{os.getenv('GK_RABBITMQ_VHOST')}"""
-    consumer = ReconnectingExampleConsumer(amqp_url)
+    consumer = ReconnectingExampleConsumer(AMQP_URL)
     consumer.run()
 
 

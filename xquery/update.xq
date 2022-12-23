@@ -6,8 +6,8 @@ declare variable $gkid external;
 
 let $url := $gk_api_base_url || "/export2.php?gkid=" || $gkid || "&amp;rate_limits_bypass=" || $rate_limits_bypass
 
-let $new_gk := fetch:xml($url)//geokret
-let $new_gk_details := fetch:xml($url|| "&amp;details=1")//geokret
+let $new_gk := fetch:doc($url)//geokret
+let $new_gk_details := fetch:doc($url|| "&amp;details=1")//geokret
 
 let $doc_gk := fn:doc("geokrety")
 let $doc_gk_details := fn:doc("geokrety-details")
