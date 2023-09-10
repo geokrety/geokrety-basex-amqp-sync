@@ -48,6 +48,7 @@ def update_gk(id: str, op: str, kind: str) -> None:
     LOGGER.info(f'Processing: {id=}, {op=} {kind=}')
     query_update.bind('gk_api_base_url', os.getenv('GK_API_BASE_URL'))
     query_update.bind('rate_limits_bypass', os.getenv('GK_API_RATE_LIMITS_BYPASS'))
+    query_update.bind('short_lived_session_token', os.getenv('GK_SITE_SESSION_SHORT_LIVED_TOKEN'))
     query_update.bind('gkid', str(id))
     query_update.execute()
 
