@@ -67,7 +67,7 @@ def process_gk(gk: dict) -> None:
         try:
             update_gk(**gk)
         except OSError as e:
-            LOGGER.info('Stilling failling')
+            LOGGER.info('Still failling')
 
 
 class ExampleConsumer(object):
