@@ -5,7 +5,7 @@ declare variable $rate_limits_bypass external;
 declare variable $short_lived_session_token external;
 declare variable $gkid external;
 
-let $url := $gk_api_base_url || "/export2.php?gkid=" || $gkid || "&amp;rate_limits_bypass=" || $rate_limits_bypass || "&amp;short_lived_session_token=" || $short_lived_session_token
+let $url := $gk_api_base_url || "/export2.php?gkid=" || $gkid || "&amp;DNT=1&amp;rate_limits_bypass=" || $rate_limits_bypass || "&amp;short_lived_session_token=" || $short_lived_session_token
 
 let $new_gk := fetch:doc($url)//geokret
 let $new_gk_details := fetch:doc($url|| "&amp;details=1")//geokret
